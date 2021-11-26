@@ -30,24 +30,10 @@ class Agent {
 	constructor(playerId) {
   		this.playerId = playerId;
   		this.gamma = 0.8;
-		this.epsilon = 0.0;
+		this.epsilon = 0.1;
 		this.experience = [];
-
-  		//build model
-  		//this.model = tf.sequential();
-		//this.model.add(tf.layers.dense({ inputShape: [48], units: 24, activation: 'tanh'}));
-		//this.model.add(tf.layers.dense({units: 1}));
-		//this.model.compile({
-  		//	loss: 'meanSquaredError',
-  		//	optimizer: 'sgd'
-		//});
-
-		//load model
-		this.loadModel();
-  	}
-
-  	async loadModel(){
-  		
+  		this.model = new nn([[48], [10, "sigmoid"], [1]], "mse", 0.01)
+  		this.model.parameters = trainedModel;
   	}
 
   	getBestMove(state){
@@ -63,7 +49,7 @@ class Agent {
 			var bestScore = -1000
 			for(var x=0; x<moves.length; x++){
 				var newState = this.simulateMove(state, this.playerId, moves[x]);
-	   			var score = this.model.predict(tf.tensor([this.prepareInput(newState)])).dataSync()[0];
+	   			var score = this.model.predict([this.prepareInput(newState)])[0][0];
 	   			if(score > bestScore){
 	   				bestScore = score;
 	   				bestMove = x;
@@ -152,19 +138,19 @@ class Agent {
 
 	async train(state, nextState, reward){
 		if(nextState == null)
-			await this.model.fit(tf.tensor([this.prepareInput(state)]), tf.tensor([reward]));
+			await this.model.train([this.prepareInput(state)], [[reward]]);
 		else{
-			var curr = this.model.predict(tf.tensor([this.prepareInput(state)])).dataSync()[0];
-			var next = this.model.predict(tf.tensor([this.prepareInput(nextState)])).dataSync()[0];	
+			var curr = this.model.predict([this.prepareInput(state)]);
+			var next = this.model.predict([this.prepareInput(nextState)]);	
 			var newVal = reward + this.gamma * next;
-			await this.model.fit(tf.tensor([this.prepareInput(state)]), tf.tensor([newVal]));	
+			await this.model.train([this.prepareInput(state)], [[newVal]]);	
 		}
 	}
 }
 
-async function train(GAMES){
+async function train(GAMES, agents){
 	environment = new Environment(initialGameState);
-	var players = [new Agent(0), new Agent(1)];
+	var players = agents;
 
 	for(var x=0; x<GAMES; x++)
 	{
@@ -173,9 +159,8 @@ async function train(GAMES){
 		var currentAgent = players[Math.round(Math.random())];
 		var turns = 0
 		environment.state = initialGameState;
-		players[0].epsilon *= (1-(2/GAMES));
-		players[1].epsilon *= (1-(0.5/GAMES));
-
+		currentAgent.epsilon *= (1-(2/GAMES));
+		
 		while(1)
 		{
 			turns += 1;
@@ -203,8 +188,6 @@ async function train(GAMES){
 		winner = (turns < 1000)?(currentAgent.playerId+1)%2:"tie";	
 		console.log("game: " + (x+1) + "    winner: " + winner + "   turns: " +  turns)
 	}
-	await players[0].model.save('downloads://model');
-	const saveResult = await players[0].model.save('localstorage://model')
 }
 
 function printGrid(grid)
@@ -221,5 +204,3 @@ function printGrid(grid)
 	 str +="\n\n\n";
     console.log(str); 
 }
-
-//train(500);

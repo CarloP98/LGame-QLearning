@@ -3,24 +3,50 @@ class Board{
         this.env = new Environment(initialGameState);
         this.playerNames = ["BLUE", "RED"]
         this.players = [new Agent(0), new Agent(1)];
+
+
         this.player = this.players[0];
         this.againstAI = true;
         this.move = [];
         this.gameContainer = document.querySelector(name);
         this.gameContainer.insertAdjacentHTML('beforeend','<h2 id="status"></h2>\
+                                                           <label style="float:right" class="switch">\
+                                                             <input type="checkbox" id="togBtn" checked>\
+                                                             <div class="slider round"></div>\
+                                                           </label><br>\
                                                            <div class="play-area"></div><br>\
                                                            <center>\
                                                                 <button id="skipBtn" hidden>SKIP</button>\
                                                                 <button id="resetBtn">RESET</button>\
                                                             </center>');
+        this.gameContainer.querySelector("label #togBtn").addEventListener("click", this.ai.bind(this));
         this.board_container = this.gameContainer.querySelector(".play-area");
         this.gameContainer.querySelector("#skipBtn").addEventListener("click", this.skip.bind(this));
         this.gameContainer.querySelector("#resetBtn").addEventListener("click", this.reset.bind(this));
         this.gameContainer.querySelector("#status").innerHTML = this.playerNames[this.player.playerId] +"'s turn - move L";
         this.renderBoard();
+        console.log(this.player.model.parameters)
+        //this.train();
     }
 
+    async train(){
+        await train(1000, this.players);
+    }
+
+    ai(e){
+        if(e.target.checked){
+            this.againstAI = true;
+            if(this.player.playerId==1)
+                this.skip();
+        }
+        else
+            this.againstAI = false;
+    }
+
+
+
     reset(){
+        this.gameContainer.querySelector("#skipBtn").hidden = true;
         this.env = new Environment(initialGameState);
         this.player = this.players[0];
         this.move = [];
@@ -65,10 +91,10 @@ class Board{
         for (var i = 0; i < this.env.state.length; i++){
             if (this.env.state[i] == "B") this.board_container.insertAdjacentHTML('beforeend', '<div class="block" id="block_'+i+'"  style="background: rgb(69,107,214)"  ondragstart="return false;"></div>');
             else if (this.env.state[i] == "R") this.board_container.insertAdjacentHTML('beforeend', '<div class="block" id="block_'+i+'"  style="background: rgb(214,100,69)"  ondragstart="return false;"></div>');
-            else if (this.env.state[i] == "C") this.board_container.insertAdjacentHTML('beforeend','<div class="block" id="block_'+i+'"  style="background: rgba(238,238,238,0.5)" ondragstart="return false;">\
-                                                                                                        <span class="coin" style="background-color: rgb(173,255,47); pointer-events: none;"></span>\
+            else if (this.env.state[i] == "C") this.board_container.insertAdjacentHTML('beforeend','<div class="block" id="block_'+i+'"  style="background: rgba(238,238,238,0.4)" ondragstart="return false;">\
+                                                                                                        <span class="coin" style="background-color: rgb(225,181,48); pointer-events: none;"></span>\
                                                                                                     </div>');
-            else this.board_container.insertAdjacentHTML('beforeend','<div class="block" id="block_'+i+'"  style="background: rgba(238,238,238,0.5)" ondragstart="return false;"></div>');
+            else this.board_container.insertAdjacentHTML('beforeend','<div class="block" id="block_'+i+'"  style="background: rgba(238,238,238,0.4)" ondragstart="return false;"></div>');
             this.board_container.querySelector("#block_"+i).addEventListener("mousedown", this.buildMove.bind(this));
             this.board_container.querySelector("#block_"+i).addEventListener("mouseover", this.buildMove.bind(this));
             this.board_container.querySelector("#block_"+i).addEventListener("mouseup", this.buildMove.bind(this));
@@ -81,13 +107,13 @@ class Board{
             if      (this.env.state[i] == "B") this.board_container.insertAdjacentHTML('beforeend', '<div class="block" id="block_' + i + '"  style="background: rgb(69,107,214)" ondragstart="return false;"></div>');
             else if (this.env.state[i] == "R") this.board_container.insertAdjacentHTML('beforeend', '<div class="block" id="block_' + i + '"  style="background: rgb(214,100,69)" ondragstart="return false;"></div>');
             else if (this.env.state[i] == "C"){
-                this.board_container.insertAdjacentHTML('beforeend', '<div class="block" id="block_' + i + '"  style="background: rgba(238,238,238,0.5)" draggable="true">\
-                                                                        <span class="coin"  style="background-color: rgb(173,255,47); pointer-events: none;"></span\
+                this.board_container.insertAdjacentHTML('beforeend', '<div class="block" id="block_' + i + '"  style="background: rgba(238,238,238,0.4)" draggable="true">\
+                                                                        <span class="coin"  style="background-color: rgb(225,181,48); pointer-events: none;"></span\
                                                                       </div>');
                 this.board_container.querySelector("#block_"+i).addEventListener("dragstart", function(event){event.dataTransfer.setData("blockId", event.target.id)});
             }
             else{
-                this.board_container.insertAdjacentHTML('beforeend', '<div class="block" id="block_' + i + '"  style="background: rgba(238,238,238,0.5)" ondragover="event.preventDefault()" ondragstart="return false;"></div>');
+                this.board_container.insertAdjacentHTML('beforeend', '<div class="block" id="block_' + i + '"  style="background: rgba(238,238,238,0.4)" ondragover="event.preventDefault()" ondragstart="return false;"></div>');
                 this.board_container.querySelector("#block_"+i).addEventListener("drop", this.drop.bind(this));
             }
     }
@@ -106,7 +132,7 @@ class Board{
     skip()
     {
         this.gameContainer.querySelector("#skipBtn").hidden = true;
-        this.player = this.players[(this.player.playerId+1)%2];
+        this.player = this.players[(this.player.playerId==1&&this.againstAI==true)?this.player.playerId:(this.player.playerId+1)%2];
         var chosenMove = this.player.getBestMove(this.env.state);
         if(!chosenMove)
             this.gameContainer.querySelector("#status").innerHTML = this.playerNames[(this.player.playerId+1)%2] +" won";
@@ -117,6 +143,8 @@ class Board{
                 this.player = this.players[(this.player.playerId+1)%2];
                 if(this.player.getBestMove(this.env.state) == null)
                     this.gameContainer.querySelector("#status").innerHTML = this.playerNames[(this.player.playerId+1)%2] +" won";
+                else
+                    this.gameContainer.querySelector("#status").innerHTML = this.playerNames[this.player.playerId] +"'s turn - move L";
             }
             else
                 this.gameContainer.querySelector("#status").innerHTML = this.playerNames[this.player.playerId] +"'s turn - move L";
